@@ -16,10 +16,7 @@ Tc		: total_system_capacity
 
 class C_RAN_CAC_Algorithm(object):
 	"""
-		The Requested_capacity class will accept 2 parameters
-		1. BBU = Baseband Unit and 
-		2. Rc  = Requested capacity
-
+		This is C-RAN CAC Algorithm.
 	"""
 	def __init__(self):
 		super(C_RAN_CAC_Algorithm, self).__init__()
@@ -34,11 +31,11 @@ class C_RAN_CAC_Algorithm(object):
 		"""
 		self.baseband_unit = {
 			0	:	10,
-			1	:	200,
-			2	:	20,
-			3	:	30,
-			4	:	40,
-			5	:	50
+			1	:	20,
+			2	:	30,
+			3	:	40,
+			4	:	50,
+			5	:	500
 		}
 
 		return self.baseband_unit
@@ -104,31 +101,30 @@ class C_RAN_CAC_Algorithm(object):
 			The function also return the sorted list of the BBUs based on their load level.
 
 		"""
-
-		dic = self.__bbu()
+		dict_of_bbu = self.__bbu()
 
 		if request <= 0:
-			return 0
+			# If the requested capacity is less than zero(0) return the actual dictionary
+			return dict_of_bbu
 		else:
-			newD = {}
-			for x, y in dic.items():
-				re = (-request)
+			re = (-request)
 
-				m = dic[x] + re
-				newD[x] = m
+			m = dict_of_bbu[0] + re
+			if m < 0:
+				dict_of_bbu[0] = 0
+				i = 1
+				while m < 0:
+					m = dict_of_bbu[i] + m
+					if m >= 0:
+						dict_of_bbu[i] = m
+					else:
+						dict_of_bbu[i] = 0
+					i+=1
+				return dict_of_bbu
+			else:
+				dict_of_bbu[0] = m
 
-				if m < 0:
-					i = x
-					while m < 0:
-						m = dic[i+1] + m
-
-						newD[x] = m
-						if m >= 0:
-							break
-						i+=1
-				elif m == 0:
-					return newD
-			return [n for n in newD.values()]
+				return dict_of_bbu
 
 	def decisionMaker(self, r_capacity):
 		"""
@@ -141,30 +137,34 @@ class C_RAN_CAC_Algorithm(object):
 		a_c = self.availableCapacity();
 		r_c = r_capacity
 
+		d = {}
+
 		if a_c > r_c:
 			# No congestion
-			#beginning BBU local resource checking
-			bbuLoadList = sorted(self.bbuRetune(r_c))
-
-			for i in self.n():
-				#Chcking remaining load levels
-				#on the sorted BBU list
-				if (self.__bbu()[i]-bbuLoadList[i]) > r_c:
-					return self.accept_request
+			# beginning BBU local resource checking
+			bbuLoadList = sorted([n for n in self.bbuRetune(r_c).values()])
+			# return bbuLoadList
+			
+			for i, j in self.__bbu().items():
+				# Chcking remaining load levels
+				# on the sorted BBU list
+				if (self.__bbu()[i]) > r_c:
+					# accept request
+					d[i] = "BBU_{} acceptRequest;".format(i)
 				else:
-					self.accept_request = False
-
-					return self.accept_request
+					# reject request
+					d[i] = "BBU_{} rejectRequest;".format(i)
+			return [n for n in d.values()]
 		else:
-			#Base station is congested
+			# Base station is congested
+			# reject request
+			d[i] = "BBU_{} rejectRequest;".format(i)
 
-			self.accept_request = False
-
-			return self.accept_request
+			return [n for n in d.values()]
 
 if __name__ == '__main__':
 	
 	rc = C_RAN_CAC_Algorithm()
 
-	print(rc.bbuLoad())
+	print(rc.decisionMaker(20))
 
